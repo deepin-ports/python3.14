@@ -1,0 +1,57 @@
+From c0d0f4b72a4ae5b1fc5c89ebcd20a9e59d82b914 Mon Sep 17 00:00:00 2001
+From: Karolina Surma <33810531+befeleme@users.noreply.github.com>
+Date: Wed, 10 Dec 2025 13:09:41 +0100
+Subject: [PATCH] gh-131372: Include LDVERSION and EXE in base_interpreter
+ value (#142256)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* Include LDVERSION and EXE in base_interpreter value
+
+In Fedora, build-details.json created and installed for python3.14t
+contains "/usr/bin/python3.14" as the base_interpreter value.
+Create a correct string, taking into account both LDVERSION and EXE
+config variables, similarly to how it's defined in altbininstall in Makefile.
+
+* Add news
+
+Signed-off-by: Filipe Laíns <lains@riseup.net>
+
+---------
+
+Signed-off-by: Filipe Laíns <lains@riseup.net>
+Co-authored-by: Filipe Laíns <lains@riseup.net>
+---
+ .../next/Build/2025-12-09-14-23-51.gh-issue-131372.2TAEyz.rst | 2 ++
+ Tools/build/generate-build-details.py                         | 4 +++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+ create mode 100644 Misc/NEWS.d/next/Build/2025-12-09-14-23-51.gh-issue-131372.2TAEyz.rst
+
+Origin: https://github.com/python/cpython/commit/c0d0f4b72a4ae5b1fc5c89ebcd20a9e59d82b914
+diff --git a/Misc/NEWS.d/next/Build/2025-12-09-14-23-51.gh-issue-131372.2TAEyz.rst b/Misc/NEWS.d/next/Build/2025-12-09-14-23-51.gh-issue-131372.2TAEyz.rst
+new file mode 100644
+index 00000000000..fd53e8c2813
+--- /dev/null
++++ b/Misc/NEWS.d/next/Build/2025-12-09-14-23-51.gh-issue-131372.2TAEyz.rst
+@@ -0,0 +1,2 @@
++Add ``LDVERSION`` and ``EXE`` to the ``base_interpreter`` value of
++``build-details.json``.
+diff --git a/Tools/build/generate-build-details.py b/Tools/build/generate-build-details.py
+index ed9ab2844d2..8272635bc62 100644
+--- a/Tools/build/generate-build-details.py
++++ b/Tools/build/generate-build-details.py
+@@ -48,7 +48,9 @@ def generate_data(schema_version: str) -> collections.defaultdict[str, Any]:
+     #data['base_interpreter'] = sys._base_executable
+     data['base_interpreter'] = os.path.join(
+         sysconfig.get_path('scripts'),
+-        'python' + sysconfig.get_config_var('VERSION'),
++        "python"
++        + sysconfig.get_config_var('LDVERSION')
++        + sysconfig.get_config_var('EXE'),
+     )
+     data['platform'] = sysconfig.get_platform()
+ 
+-- 
+2.53.0
+

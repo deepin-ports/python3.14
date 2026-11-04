@@ -1,0 +1,22 @@
+Description: _pyrepl (and its dependencies) are not shipped in -minimal
+ Just print out text in the copyright() builtin etc.
+Forwarded: not-needed
+--- a/Lib/_sitebuiltins.py
++++ b/Lib/_sitebuiltins.py
+@@ -65,7 +65,15 @@
+             return "Type %s() to see the full %s text" % ((self.__name,)*2)
+ 
+     def __call__(self):
+-        from _pyrepl.pager import get_pager
++        try:
++            from _pyrepl.pager import get_pager
++        except ImportError:
++            def get_pager():
++                def pager(text, title: str = "") -> None:
++                    print(title)
++                    print(text)
++                return pager
++
+         self.__setup()
+ 
+         pager = get_pager()

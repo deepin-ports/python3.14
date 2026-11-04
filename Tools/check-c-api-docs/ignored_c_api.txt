@@ -1,0 +1,38 @@
+# fileobject.h
+Py_FileSystemDefaultEncodeErrors
+Py_FileSystemDefaultEncoding
+Py_HasFileSystemDefaultEncoding
+Py_UTF8Mode
+# modsupport.h
+PyABIInfo_FREETHREADING_AGNOSTIC
+# pyport.h
+PY_FORMAT_SIZE_T
+PY_INT32_T
+PY_INT64_T
+PY_LLONG_MAX
+PY_LLONG_MIN
+PY_LONG_LONG
+PY_SIZE_MAX
+PY_UINT32_T
+PY_UINT64_T
+PY_ULLONG_MAX
+# patchlevel.h
+PYTHON_ABI_STRING
+PYTHON_API_STRING
+PY_RELEASE_LEVEL_ALPHA
+PY_RELEASE_LEVEL_BETA
+PY_RELEASE_LEVEL_FINAL
+PY_RELEASE_LEVEL_GAMMA
+PY_VERSION
+# unicodeobject.h
+Py_UNICODE_SIZE
+# cpython/descrobject.h
+PyDescr_COMMON
+# 3.14 only
+Py_TPFLAGS_PREHEADER
+PyUnicode_AsDecodedObject
+PyUnicode_AsDecodedUnicode
+PyUnicode_AsEncodedObject
+PyUnicode_AsEncodedUnicode
+# Soft-deprecated in 3.15; will remain undocumented in 3.14 and 3.13
+PyException_HEAD

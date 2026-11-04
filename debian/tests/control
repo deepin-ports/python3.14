@@ -1,0 +1,84 @@
+Tests: testsuite
+Depends: build-essential,
+  ca-certificates,
+  locales-all,
+  python3.14-dev,
+  libpython3.14-testsuite:native,
+  python3.14-gdbm,
+  python3.14-tk,
+  idle-python3.14,
+  systemtap-sdt-dev,
+  python3.14-venv,
+# need to turn off apport
+Restrictions: needs-root, allow-stderr
+
+Tests: testsuite-dbg
+Depends: build-essential,
+  ca-certificates,
+  locales-all, python3.14-dev,
+  python3.14-dbg,
+  libpython3.14-testsuite:native,
+  gdb,
+  idle-python3.14,
+  systemtap-sdt-dev,
+  python3.14-venv,
+# need to turn off apport
+Restrictions: needs-root, allow-stderr
+
+Tests: failing-tests
+Depends: build-essential,
+  ca-certificates,
+  locales-all,
+  python3.14-dev,
+  libpython3.14-testsuite:native,
+  python3.14-gdbm,
+  python3.14-tk,
+  python3.14-venv,
+# need to turn off apport
+Restrictions: needs-root, allow-stderr
+
+Tests: failing-tests-dbg
+Depends: build-essential,
+  ca-certificates,
+  locales-all,
+  python3.14-dev,
+  python3.14-dbg,
+  python3.14-tk,
+  libpython3.14-testsuite:native,
+  gdb,
+  python3.14-venv,
+# need to turn off apport
+Restrictions: needs-root, allow-stderr
+
+Tests: module-install-local
+Depends: build-essential,
+  mount,
+  python3.14-dev,
+  python3-pip,
+  python3-setuptools (>= 80),
+  shunit2,
+Restrictions: needs-root, allow-stderr
+
+Tests: module-install-user
+Depends: build-essential,
+  python3.14-dev,
+  python3-pip,
+  python3-setuptools (>= 80),
+  shunit2
+Restrictions: allow-stderr
+
+Tests: module-install-venv
+Depends: build-essential,
+  python3.14-dev,
+  python3.14-venv,
+  python3-setuptools-whl (>= 80),
+  shunit2
+Restrictions: allow-stderr
+
+Tests: module-install-virtualenv
+Depends: build-essential,
+  python3.14-dev,
+  shunit2,
+  virtualenv,
+  python3-setuptools-whl (>= 80)
+Restrictions: allow-stderr

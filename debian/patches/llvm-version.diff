@@ -1,0 +1,213 @@
+From 96c59a6e427fab32d0bca89b77febca8cba8aada Mon Sep 17 00:00:00 2001
+From: danigm <daniel.garcia@suse.com>
+Date: Tue, 7 Oct 2025 16:54:31 +0200
+Subject: [PATCH] gh-138497: Support LLVM_VERSION configuration via env
+ (#138498)
+
+Co-authored-by: Savannah Ostrowski <savannah@python.org>
+---
+ ...-09-04-12-16-31.gh-issue-138497.Y_5YXh.rst |  4 ++
+ Tools/jit/README.md                           |  2 +-
+ Tools/jit/_llvm.py                            | 49 ++++++++++++-------
+ Tools/jit/_targets.py                         | 19 +++++--
+ Tools/jit/build.py                            |  3 ++
+ configure                                     |  2 +-
+ configure.ac                                  |  2 +-
+ 7 files changed, 56 insertions(+), 25 deletions(-)
+ create mode 100644 Misc/NEWS.d/next/Build/2025-09-04-12-16-31.gh-issue-138497.Y_5YXh.rst
+
+--- /dev/null
++++ b/Misc/NEWS.d/next/Build/2025-09-04-12-16-31.gh-issue-138497.Y_5YXh.rst
+@@ -0,0 +1,4 @@
++The LLVM version used by the JIT at build time can now be modified using
++the ``LLVM_VERSION`` environment variable. Use this at your own risk, as
++there is only one officially supported LLVM version. For more information,
++please check ``Tools/jit/README.md``.
+--- a/Tools/jit/README.md
++++ b/Tools/jit/README.md
+@@ -9,7 +9,7 @@
+ 
+ The JIT compiler does not require end users to install any third-party dependencies, but part of it must be *built* using LLVM[^why-llvm]. You are *not* required to build the rest of CPython using LLVM, or even the same version of LLVM (in fact, this is uncommon).
+ 
+-LLVM version 19 is required. Both `clang` and `llvm-readobj` need to be installed and discoverable (version suffixes, like `clang-19`, are okay). It's highly recommended that you also have `llvm-objdump` available, since this allows the build script to dump human-readable assembly for the generated code.
++LLVM version 19 is the officially supported version. You can modify if needed using the `LLVM_VERSION` env var during configure. Both `clang` and `llvm-readobj` need to be installed and discoverable (version suffixes, like `clang-19`, are okay). It's highly recommended that you also have `llvm-objdump` available, since this allows the build script to dump human-readable assembly for the generated code.
+ 
+ It's easy to install all of the required tools:
+ 
+--- a/Tools/jit/_llvm.py
++++ b/Tools/jit/_llvm.py
+@@ -10,10 +10,7 @@
+ 
+ import _targets
+ 
+-_LLVM_VERSION = 19
+-_LLVM_VERSION_PATTERN = re.compile(
+-    rf"(?<!Apple )(LLVM|clang) version\s+{_LLVM_VERSION}\.\d+\.\d+\S*\s+"
+-)
++_LLVM_VERSION = 21
+ _EXTERNALS_LLVM_TAG = "llvm-19.1.7.0"
+ 
+ _P = typing.ParamSpec("_P")
+@@ -58,53 +55,66 @@
+ 
+ 
+ @_async_cache
+-async def _check_tool_version(name: str, *, echo: bool = False) -> bool:
++async def _check_tool_version(
++    name: str, llvm_version: str, *, echo: bool = False
++) -> bool:
+     output = await _run(name, ["--version"], echo=echo)
+-    return bool(output and _LLVM_VERSION_PATTERN.search(output))
++    _llvm_version_pattern = re.compile(rf"version\s+{llvm_version}\.\d+\.\d+\S*\s+")
++    return bool(output and _llvm_version_pattern.search(output))
+ 
+ 
+ @_async_cache
+-async def _get_brew_llvm_prefix(*, echo: bool = False) -> str | None:
+-    output = await _run("brew", ["--prefix", f"llvm@{_LLVM_VERSION}"], echo=echo)
++async def _get_brew_llvm_prefix(llvm_version: str, *, echo: bool = False) -> str | None:
++    output = await _run("brew", ["--prefix", f"llvm@{llvm_version}"], echo=echo)
+     return output and output.removesuffix("\n")
+ 
+ 
+ @_async_cache
+-async def _find_tool(tool: str, *, echo: bool = False) -> str | None:
++async def _find_tool(tool: str, llvm_version: str, *, echo: bool = False) -> str | None:
+     # Unversioned executables:
+     path = tool
+-    if await _check_tool_version(path, echo=echo):
++    if await _check_tool_version(path, llvm_version, echo=echo):
+         return path
+     # Versioned executables:
+-    path = f"{tool}-{_LLVM_VERSION}"
+-    if await _check_tool_version(path, echo=echo):
++    path = f"{tool}-{llvm_version}"
++    if await _check_tool_version(path, llvm_version, echo=echo):
+         return path
+     # PCbuild externals:
+     externals = os.environ.get("EXTERNALS_DIR", _targets.EXTERNALS)
+     path = os.path.join(externals, _EXTERNALS_LLVM_TAG, "bin", tool)
+-    if await _check_tool_version(path, echo=echo):
++    if await _check_tool_version(path, llvm_version, echo=echo):
+         return path
+     # Homebrew-installed executables:
+-    prefix = await _get_brew_llvm_prefix(echo=echo)
++    prefix = await _get_brew_llvm_prefix(llvm_version, echo=echo)
+     if prefix is not None:
+         path = os.path.join(prefix, "bin", tool)
+-        if await _check_tool_version(path, echo=echo):
++        if await _check_tool_version(path, llvm_version, echo=echo):
+             return path
+     # Nothing found:
+     return None
+ 
+ 
+ async def maybe_run(
+-    tool: str, args: typing.Iterable[str], echo: bool = False
++    tool: str,
++    args: typing.Iterable[str],
++    echo: bool = False,
++    llvm_version: str = _LLVM_VERSION,
+ ) -> str | None:
+     """Run an LLVM tool if it can be found. Otherwise, return None."""
+-    path = await _find_tool(tool, echo=echo)
++
++    path = await _find_tool(tool, llvm_version, echo=echo)
+     return path and await _run(path, args, echo=echo)
+ 
+ 
+-async def run(tool: str, args: typing.Iterable[str], echo: bool = False) -> str:
++async def run(
++    tool: str,
++    args: typing.Iterable[str],
++    echo: bool = False,
++    llvm_version: str = _LLVM_VERSION,
++) -> str:
+     """Run an LLVM tool if it can be found. Otherwise, raise RuntimeError."""
+-    output = await maybe_run(tool, args, echo=echo)
++
++    output = await maybe_run(tool, args, echo=echo, llvm_version=llvm_version)
+     if output is None:
+-        raise RuntimeError(f"Can't find {tool}-{_LLVM_VERSION}!")
++        raise RuntimeError(f"Can't find {tool}-{llvm_version}!")
+     return output
+--- a/Tools/jit/_targets.py
++++ b/Tools/jit/_targets.py
+@@ -48,6 +48,7 @@
+     debug: bool = False
+     verbose: bool = False
+     cflags: str = ""
++    llvm_version: str = _llvm._LLVM_VERSION
+     known_symbols: dict[str, int] = dataclasses.field(default_factory=dict)
+     pyconfig_dir: pathlib.Path = pathlib.Path.cwd().resolve()
+ 
+@@ -79,7 +80,9 @@
+     async def _parse(self, path: pathlib.Path) -> _stencils.StencilGroup:
+         group = _stencils.StencilGroup()
+         args = ["--disassemble", "--reloc", f"{path}"]
+-        output = await _llvm.maybe_run("llvm-objdump", args, echo=self.verbose)
++        output = await _llvm.maybe_run(
++            "llvm-objdump", args, echo=self.verbose, llvm_version=self.llvm_version
++        )
+         if output is not None:
+             # Make sure that full paths don't leak out (for reproducibility):
+             long, short = str(path), str(path.name)
+@@ -97,7 +100,9 @@
+             "--sections",
+             f"{path}",
+         ]
+-        output = await _llvm.run("llvm-readobj", args, echo=self.verbose)
++        output = await _llvm.run(
++            "llvm-readobj", args, echo=self.verbose, llvm_version=self.llvm_version
++        )
+         # --elf-output-style=JSON is only *slightly* broken on Mach-O...
+         output = output.replace("PrivateExtern\n", "\n")
+         output = output.replace("Extern\n", "\n")
+@@ -164,7 +169,7 @@
+             # Allow user-provided CFLAGS to override any defaults
+             *shlex.split(self.cflags),
+         ]
+-        await _llvm.run("clang", args, echo=self.verbose)
++        await _llvm.run("clang", args, echo=self.verbose, llvm_version=self.llvm_version)
+         return await self._parse(o)
+ 
+     async def _build_stencils(self) -> dict[str, _stencils.StencilGroup]:
+@@ -212,6 +217,8 @@
+         if not self.stable:
+             warning = f"JIT support for {self.triple} is still experimental!"
+             request = "Please report any issues you encounter.".center(len(warning))
++            if self.llvm_version != _llvm._LLVM_VERSION:
++                request = f"Warning! Building with an LLVM version other than {_llvm._LLVM_VERSION} is not supported."
+             outline = "=" * len(warning)
+             print("\n".join(["", outline, warning, request, outline, ""]))
+         digest = f"// {self._compute_digest()}\n"
+--- a/Tools/jit/build.py
++++ b/Tools/jit/build.py
+@@ -42,6 +42,7 @@
+     parser.add_argument(
+         "--cflags", help="additional flags to pass to the compiler", default=""
+     )
++    parser.add_argument("--llvm-version", help="LLVM version to use")
+     args = parser.parse_args()
+     for target in args.target:
+         target.debug = args.debug
+@@ -49,6 +50,8 @@
+         target.verbose = args.verbose
+         target.cflags = args.cflags
+         target.pyconfig_dir = args.pyconfig_dir
++        if args.llvm_version:
++            target.llvm_version = args.llvm_version
+         target.build(
+             comment=comment,
+             force=args.force,
+--- a/configure.ac
++++ b/configure.ac
+@@ -2873,7 +2873,7 @@
+           [],
+           [AS_VAR_APPEND([CFLAGS_NODIST], [" $jit_flags"])
+            AS_VAR_SET([REGEN_JIT_COMMAND],
+-                      ["\$(PYTHON_FOR_REGEN) \$(srcdir)/Tools/jit/build.py ${ARCH_TRIPLES:-$host} --output-dir . --pyconfig-dir . --cflags=\"$CFLAGS_JIT\""])
++                      ["\$(PYTHON_FOR_REGEN) \$(srcdir)/Tools/jit/build.py ${ARCH_TRIPLES:-$host} --output-dir . --pyconfig-dir . --cflags=\"$CFLAGS_JIT\" --llvm-version=\"$LLVM_VERSION\""])
+            AS_VAR_SET([JIT_STENCILS_H], ["jit_stencils.h"])
+            AS_VAR_IF([Py_DEBUG],
+                      [true],

@@ -1,0 +1,29 @@
+From c474653215238b1953ac85612160f50df01bdf36 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 4 Nov 2025 17:34:11 +0000
+Subject: [PATCH] Avoid TestNullDlsym hanging on HP-PA
+
+glibc has no support for IFUNC on HP PA RISC yet. Rather than waiting
+for an "OK" that we'll never get, skip the test.
+
+See: https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/hppa/dl-irel.h;h=770dcb3ea3a6ce232bb11bf59315cfec4c543f93;hb=HEAD
+
+Forwarded: https://github.com/python/cpython/pull/141011
+---
+ Lib/test/test_ctypes/test_dlerror.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+--- a/Lib/test/test_ctypes/test_dlerror.py
++++ b/Lib/test/test_ctypes/test_dlerror.py
+@@ -30,8 +30,9 @@
+ """
+ 
+ 
+-@unittest.skipUnless(sys.platform.startswith('linux'),
+-                     'test requires GNU IFUNC support')
++@unittest.skipIf(not sys.platform.startswith('linux')
++                 or platform.machine().startswith('parisc'),
++                 'test requires GNU IFUNC support')
+ @unittest.skipIf(test.support.linked_to_musl(), "Requires glibc")
+ class TestNullDlsym(unittest.TestCase):
+     """GH-126554: Ensure that we catch NULL dlsym return values
